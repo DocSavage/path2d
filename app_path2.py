@@ -112,7 +112,7 @@ while gui.running:
             if next_pixel in reached and cur_path_cost >= cost[next_pixel]:
                 continue
 
-            print(f'Set path to {next_pixel}: cost {cur_path_cost}, min intensity {cur_min_intensity}, length {cur_path_length}')
+            # print(f'Set path to {next_pixel}: cost {cur_path_cost}, min intensity {cur_min_intensity}, length {cur_path_length}')
             min_int[next_pixel] = cur_min_intensity
             path_length[next_pixel] = cur_path_length
             cost[next_pixel] = cur_path_cost
@@ -125,8 +125,15 @@ while gui.running:
             frontier.put((cur_path_cost, next_pixel))
             reached.add(next_pixel)
 
-    # Signal we are done by painting path
+    # Now that we've computed costs between the start and end point, we can get a good path.
     if not determined_path:
+        # reset to original grayscale
+        for i, j in reached:
+            display[i, j, 0] = pixels[i, j, 0]
+            display[i, j, 1] = pixels[i, j, 0]
+            display[i, j, 2] = pixels[i, j, 0]
+
+        # paint path
         pixel = end_pixel
         while pixel != start_pixel:
             best_cost = cost[pixel] + 1
@@ -136,6 +143,7 @@ while gui.running:
                 if next_pixel in reached and cost[next_pixel] < best_cost:
                     best_pixel = next_pixel
                     best_cost = cost[next_pixel]
+
             pixel = best_pixel
             x, y = pixel
             display[x, y, 0] = 0
