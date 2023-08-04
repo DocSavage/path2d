@@ -17,7 +17,7 @@ end_pixel = (588, 98)
 cost = ti.field(dtype=ti.i32, shape=(width, height))
 
 # The minimum intensity of pixels from start to each pixel.
-min_int = ti.field(dtype=ti.u16, shape=(width, height))
+min_int = ti.field(dtype=ti.u8, shape=(width, height))
 
 # The image to display where we will add data to analyze algorithm
 pixels = ti.field(dtype=ti.u8, shape=(width, height, 3))   # for image data
@@ -77,11 +77,14 @@ cytoplasm_threshold = 130
 
 checked = 0
 determined_path = False
+found_end = False
 while gui.running:
-    while not frontier.empty():
+    while not found_end and not frontier.empty():
         score, current_pixel = frontier.get()
+        print(f'checking pixel {current_pixel} with score {score}')
         if current_pixel == end_pixel:
             print('found end pixel!')
+            found_end = True
             break
 
         if checked % 100 == 0:
@@ -106,8 +109,10 @@ while gui.running:
 
             # if this has already been considered, only reconsider if we've found
             # a better (higher intensity) path.
-            if next_pixel in reached and min_int[next_pixel] >= cur_path_cost:
+            if next_pixel in reached and cur_path_cost <= min_int[next_pixel]:
                 continue
+
+            print(f'found new path to {next_pixel} with cost {cur_path_cost} > {min_int[next_pixel]}')
 
             min_int[next_pixel] = cur_path_cost
             display[next_x, next_y, 1] = min_int[next_pixel]
