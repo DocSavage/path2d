@@ -1,3 +1,5 @@
+# Breadth-first search to grow a cell while limiting to cytoplasm.
+
 from queue import Queue
 import numpy as np
 import taichi as ti
@@ -58,7 +60,6 @@ gui = ti.GUI('Best Path', res=(width, height))
 # Calculates the cost of through any pixel in the whole image.
 frontier = Queue()
 frontier.put(start_pixel)
-cost[start_pixel] = 0
 reached = set()
 reached.add(start_pixel)
 
@@ -72,11 +73,14 @@ print('starting intensity: ', pixels[start_x, start_y, 0])
 cytoplasm_threshold = 130
 
 checked = 0
-lowest_intensity = 255
 painted_visited = False
 while gui.running:
     while not frontier.empty():
         current_pixel = frontier.get()
+        if current_pixel == end_pixel:
+            print('found end pixel!')
+            break
+
         if checked % 100 == 0:
             gui.set_image(display)
             gui.show()
@@ -101,15 +105,6 @@ while gui.running:
                 # Path cost is the worst (minimum) intensity along path.
                 min_int[next_pixel] = min(min_int[current_pixel], next_intensity)
                 display[next_x, next_y, 1] = min_int[next_pixel]
-
-                if next_intensity < lowest_intensity:
-                    lowest_intensity = next_intensity
-
-                # Did we reach the end?
-                if next_pixel == end_pixel:
-                    print('stopping, perhaps prematurely, at end point!')
-                    frontier.task_done()
-                    break
     
     # Signal we are done by painting path
     if not painted_visited:

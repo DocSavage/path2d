@@ -1,4 +1,6 @@
-from queue import Queue
+# Try to find better paths by priotizing best paths.
+
+from queue import PriorityQueue
 import numpy as np
 import taichi as ti
 ti.init(arch=ti.gpu)
@@ -56,15 +58,17 @@ gui = ti.GUI('Best Path', res=(width, height))
 
 # Breadth-first search, but we'd want to move toward Dijkstra's algorithm.
 # Calculates the cost of through any pixel in the whole image.
-frontier = Queue()
-frontier.put(start_pixel)
-cost[start_pixel] = 0
+frontier = PriorityQueue()
+
+start_x, start_y = start_pixel
+start_intensity = pixels[start_x, start_y, 0]
+min_int[start_pixel] = start_intensity
+print('starting intensity: ', start_intensity)
+
+frontier.put((255-start_intensity, start_pixel))
 reached = set()
 reached.add(start_pixel)
 
-start_x, start_y = start_pixel
-min_int[start_pixel] = pixels[start_x, start_y, 0]
-print('starting intensity: ', pixels[start_x, start_y, 0])
 
 # This is a manually set threshold where we assume membranes and other
 # "walls" are darker than this intensity.  You can modify it and see if
@@ -72,48 +76,48 @@ print('starting intensity: ', pixels[start_x, start_y, 0])
 cytoplasm_threshold = 130
 
 checked = 0
-lowest_intensity = 255
-painted_visited = False
+determined_path = False
 while gui.running:
     while not frontier.empty():
-        current_pixel = frontier.get()
+        score, current_pixel = frontier.get()
+        if current_pixel == end_pixel:
+            print('found end pixel!')
+            break
+
         if checked % 100 == 0:
             gui.set_image(display)
             gui.show()
 
         for next_pixel in neighborhood(current_pixel):
-            if next_pixel not in reached:
-                checked += 1
-                if checked % 10000 == 0:
-                    print(f'checked {checked} / {width * height} pixels')
+            checked += 1
+            if checked % 10000 == 0:
+                print(f'checked {checked} / {width * height} pixels')
 
-                # get intensity of this pixel
-                next_x, next_y = next_pixel
-                next_intensity = pixels[next_x, next_y, 0]
+            # get intensity of this pixel
+            next_x, next_y = next_pixel
+            next_intensity = pixels[next_x, next_y, 0]
 
-                # only grow through cytoplasm (use threshold)
-                if next_intensity < cytoplasm_threshold:
-                    continue
+            # only grow through cytoplasm (use threshold)
+            if next_intensity < cytoplasm_threshold:
+                continue
 
-                frontier.put(next_pixel)
-                reached.add(next_pixel)
+            # Path cost is the worst (minimum) intensity along path.
+            cur_path_cost = min(min_int[current_pixel], next_intensity)
 
-                # Path cost is the worst (minimum) intensity along path.
-                min_int[next_pixel] = min(min_int[current_pixel], next_intensity)
-                display[next_x, next_y, 1] = min_int[next_pixel]
+            # if this has already been considered, only reconsider if we've found
+            # a better (higher intensity) path.
+            if next_pixel in reached and min_int[next_pixel] >= cur_path_cost:
+                continue
 
-                if next_intensity < lowest_intensity:
-                    lowest_intensity = next_intensity
+            min_int[next_pixel] = cur_path_cost
+            display[next_x, next_y, 1] = min_int[next_pixel]
 
-                # Did we reach the end?
-                if next_pixel == end_pixel:
-                    print('stopping, perhaps prematurely, at end point!')
-                    frontier.task_done()
-                    break
-    
+            frontier.put((255-min_int[next_pixel], next_pixel))
+            reached.add(next_pixel)
+
     # Signal we are done by painting path
-    if not painted_visited:
-        paint_visited_green()
-        painted_visited = True
+    if not determined_path:
+        paint_visited_green()  # should be replaced with path calc but need to get it working first
+        determined_path = True
     gui.set_image(display)
     gui.show()
